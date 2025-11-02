@@ -18,7 +18,7 @@ class LoansService {
   private paymentsCollection = 'payments';
 
   // Crear solicitud de préstamo
-  async createLoan(
+   async createLoan(
     userId: string,
     amount: number,
     term: number,
@@ -54,8 +54,7 @@ class LoansService {
         updatedAt: Timestamp.now(),
       };
 
-      console.log('📤 Enviando a Firestore:', loanData);
-
+      console.log('📤 Enviando a Firestore...');
       const docRef = await addDoc(collection(db, this.loansCollection), loanData);
       
       console.log('✅ Préstamo creado con ID:', docRef.id);
@@ -71,70 +70,42 @@ class LoansService {
   // Obtener préstamos de un usuario
   async getUserLoans(userId: string): Promise<Loan[]> {
     try {
-      console.log('🔍 Buscando préstamos para userId:', userId);
-      
-      // Intentar con orderBy
-      try {
-        const q = query(
-          collection(db, this.loansCollection),
-          where('userId', '==', userId),
-          orderBy('requestDate', 'desc')
-        );
+      const q = query(
+        collection(db, this.loansCollection),
+        where('userId', '==', userId),
+        orderBy('requestDate', 'desc')
+      );
 
-        const querySnapshot = await getDocs(q);
-        return this.processLoansSnapshot(querySnapshot);
-      } catch (orderError: any) {
-        // Si falla por índice, intentar sin orderBy
-        if (orderError.code === 'failed-precondition') {
-          console.log('⚠️ Intentando sin orderBy...');
-          const q = query(
-            collection(db, this.loansCollection),
-            where('userId', '==', userId)
-          );
-          
-          const querySnapshot = await getDocs(q);
-          const loans = this.processLoansSnapshot(querySnapshot);
-          
-          // Ordenar manualmente
-          loans.sort((a, b) => b.requestDate.getTime() - a.requestDate.getTime());
-          return loans;
-        }
-        throw orderError;
-      }
+      const querySnapshot = await getDocs(q);
+      const loans: Loan[] = [];
+
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        loans.push({
+          id: doc.id,
+          userId: data.userId,
+          codeudorId: data.codeudorId,
+          amount: data.amount,
+          balance: data.balance,
+          term: data.term,
+          interestRate: data.interestRate,
+          monthlyPayment: data.monthlyPayment,
+          status: data.status,
+          description: data.description,
+          requestDate: data.requestDate.toDate(),
+          approvalDate: data.approvalDate?.toDate(),
+          codeudorStatus: data.codeudorStatus,
+          documentsURL: data.documentsURL,
+          createdAt: data.createdAt.toDate(),
+          updatedAt: data.updatedAt.toDate(),
+        } as Loan);
+      });
+
+      return loans;
     } catch (error: any) {
-      console.error('❌ Error al obtener préstamos:', error);
+      console.error('Error al obtener préstamos:', error);
       return [];
     }
-  }
-
-  private processLoansSnapshot(querySnapshot: any): Loan[] {
-    const loans: Loan[] = [];
-    
-    console.log('📊 Préstamos encontrados:', querySnapshot.size);
-
-    querySnapshot.forEach((doc: any) => {
-      const data = doc.data();
-      loans.push({
-        id: doc.id,
-        userId: data.userId,
-        codeudorId: data.codeudorId,
-        amount: data.amount,
-        balance: data.balance,
-        term: data.term,
-        interestRate: data.interestRate,
-        monthlyPayment: data.monthlyPayment,
-        status: data.status,
-        description: data.description,
-        requestDate: data.requestDate.toDate(),
-        approvalDate: data.approvalDate?.toDate(),
-        codeudorStatus: data.codeudorStatus,
-        documentsURL: data.documentsURL,
-        createdAt: data.createdAt.toDate(),
-        updatedAt: data.updatedAt.toDate(),
-      } as Loan);
-    });
-
-    return loans;
   }
 
   // Registrar abono/pago
@@ -145,8 +116,6 @@ class LoansService {
     receiptURL?: string
   ): Promise<string> {
     try {
-      console.log('💵 Registrando pago:', { loanId, userId, amount });
-      
       // Obtener préstamo actual
       const loanRef = doc(db, this.loansCollection, loanId);
       const loanSnap = await getDoc(loanRef);
@@ -158,8 +127,6 @@ class LoansService {
       const loanData = loanSnap.data();
       const currentBalance = loanData.balance;
       const newBalance = Math.max(0, currentBalance - amount);
-
-      console.log('💰 Balance actual:', currentBalance, '→ Nuevo:', newBalance);
 
       // Crear registro de pago
       const paymentData = {
@@ -191,11 +158,11 @@ class LoansService {
 
       await updateDoc(loanRef, updateData);
 
-      console.log('✅ Pago registrado con ID:', paymentRef.id);
+      console.log('✅ Pago registrado:', paymentRef.id);
       return paymentRef.id;
     } catch (error: any) {
       console.error('❌ Error al registrar pago:', error);
-      throw new Error(`No se pudo registrar el abono: ${error.message}`);
+      throw new Error('No se pudo registrar el abono. Intenta de nuevo.');
     }
   }
 
@@ -275,7 +242,7 @@ class LoansService {
   // Calcular próxima fecha de pago (aproximada)
   getNextPaymentDate(loan: Loan): Date {
     const today = new Date();
-    const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 6);
+    const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 6); // Día 6 del próximo mes
     return nextMonth;
   }
 }

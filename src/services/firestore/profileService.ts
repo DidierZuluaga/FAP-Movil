@@ -1,3 +1,4 @@
+import { authService } from '../auth/authService';
 import * as ImagePicker from 'expo-image-picker';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -162,11 +163,13 @@ class ProfileService {
   }
 
   // Proceso completo: elegir origen, subir y actualizar
-  async changeProfilePhoto(
+   async changeProfilePhoto(
     userId: string,
     source: 'camera' | 'gallery'
   ): Promise<string> {
     try {
+      console.log('📸 Cambiando foto, fuente:', source);
+      
       // Obtener imagen según fuente
       const imageUri = source === 'camera'
         ? await this.takePhoto()
@@ -176,15 +179,23 @@ class ProfileService {
         throw new Error('No se seleccionó ninguna imagen');
       }
 
+      console.log('✅ Imagen obtenida, subiendo...');
+
       // Subir a Storage
       const photoURL = await this.uploadProfilePhoto(userId, imageUri);
 
-      // Actualizar en Firestore
-      await this.updateProfilePhoto(userId, photoURL);
+      console.log('✅ Imagen subida, actualizando perfil...');
 
+      // Actualizar en Firestore Y Firebase Auth
+      await Promise.all([
+        this.updateProfilePhoto(userId, photoURL),
+        authService.updateUserProfile(userId, { photoURL })
+      ]);
+
+      console.log('✅ Foto actualizada completamente');
       return photoURL;
     } catch (error: any) {
-      console.error('Error cambiando foto de perfil:', error);
+      console.error('❌ Error cambiando foto de perfil:', error);
       throw error;
     }
   }

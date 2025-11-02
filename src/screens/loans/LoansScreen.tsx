@@ -155,11 +155,12 @@ export const LoansScreen = () => {
 
       // Crear notificación
       await notificationsService.createNotification(
-        user.id,
-        'general',
-        '📝 Solicitud Enviada',
-        `Tu solicitud de préstamo por ${formatCurrency(amount)} ha sido enviada exitosamente.`
-      );
+  user.id, // ← así se accede al ID del usuario
+  'general',
+  "Solicitud Enviada", 
+  "Tu solicitud de préstamo ha sido enviada exitosamente",
+  "/loans"
+);
 
       if (Platform.OS === 'web') {
         alert('✅ Solicitud enviada exitosamente. Recibirás una notificación cuando sea aprobada.');
