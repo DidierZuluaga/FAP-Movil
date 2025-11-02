@@ -157,8 +157,18 @@ class NotificationsService {
       userId,
       'saving_confirmed',
       '✅ Aporte Confirmado',
-      `Tu aporte de $${amount.toLocaleString('es-CO')} ha sido registrado exitosamente.`
+      `Tu aporte de ${this.formatCurrency(amount)} ha sido registrado exitosamente.`
     );
+  }
+
+  // Helper para formatear moneda
+  private formatCurrency(amount: number): string {
+    return new Intl.NumberFormat('es-CO', {
+      style: 'currency',
+      currency: 'COP',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
   }
 
   // Crear notificación de préstamo aprobado

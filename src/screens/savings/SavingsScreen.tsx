@@ -1,3 +1,4 @@
+import { notificationsService } from '../../services/firestore/notificationsService';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -120,11 +121,24 @@ export const SavingsScreen = () => {
       setIsSaving(true);
       
       const amount = parseFloat(formData.amount);
-      await savingsService.createSaving(
+      
+      console.log('💾 Guardando aporte:', { userId: user!.id, amount, description: formData.description });
+      
+      const savingId = await savingsService.createSaving(
         user!.id,
         amount,
         formData.description
       );
+
+      console.log('✅ Aporte guardado con ID:', savingId);
+
+      // Crear notificación automática
+      try {
+        await notificationsService.notifySavingConfirmed(user!.id, amount);
+        console.log('✅ Notificación creada');
+      } catch (notifError) {
+        console.warn('⚠️ Error creando notificación (no crítico):', notifError);
+      }
 
       // Mostrar mensaje de éxito
       if (Platform.OS === 'web') {
@@ -138,13 +152,15 @@ export const SavingsScreen = () => {
       setShowAddModal(false);
 
       // Recargar datos
+      console.log('🔄 Recargando datos...');
       await loadData();
+      console.log('✅ Datos recargados');
     } catch (error: any) {
-      console.error('Error al guardar:', error);
+      console.error('❌ Error al guardar:', error);
       if (Platform.OS === 'web') {
-        alert('❌ Error al guardar el aporte. Intenta de nuevo.');
+        alert(`❌ Error: ${error.message}`);
       } else {
-        Alert.alert('Error', 'No se pudo guardar el aporte. Intenta de nuevo.');
+        Alert.alert('Error', error.message || 'No se pudo guardar el aporte. Intenta de nuevo.');
       }
     } finally {
       setIsSaving(false);

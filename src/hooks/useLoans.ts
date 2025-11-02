@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from './useAuth';
 import { loansService } from '../services/firestore/loansService';
 import { Loan } from '../types';
+
 export const useLoans = () => {
   const { user } = useAuth();
   const [loans, setLoans] = useState<Loan[]>([]);
@@ -28,7 +29,8 @@ export const useLoans = () => {
   const createLoan = async (
     amount: number,
     term: number,
-    description: string
+    description: string,
+    rate: number
   ) => {
     if (!user) throw new Error('Usuario no autenticado');
 
@@ -36,7 +38,7 @@ export const useLoans = () => {
       setIsLoading(true);
       setError(null);
       
-      await loansService.createLoan(user.id, amount, term, description);
+      await loansService.createLoan(user.id, amount, term, description, rate);
       await loadLoans(); // Recargar datos
       
       return true;
@@ -48,12 +50,15 @@ export const useLoans = () => {
     }
   };
 
-  const registerPayment = async (loanId: string, amount: number) => {
+  const registerPayment = async (loanId: string, amount: number, receiptURL?: string) => {
+    if (!user) throw new Error('Usuario no autenticado');
+
     try {
       setIsLoading(true);
       setError(null);
       
-      await loansService.registerPayment(loanId, amount);
+      // ✅ Ahora pasamos los 4 parámetros requeridos
+      await loansService.registerPayment(loanId, user.id, amount, receiptURL);
       await loadLoans(); // Recargar datos
       
       return true;

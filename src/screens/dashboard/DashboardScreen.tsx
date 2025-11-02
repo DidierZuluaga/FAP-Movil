@@ -1,4 +1,5 @@
 import { useDashboard } from '../../hooks/useDashboard';
+import { useNotifications } from '../../hooks/useNotifications';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -39,13 +40,14 @@ export const DashboardScreen = ({ navigation }: any) => {
   });
 
   const { data: dashboardData, isLoading: loadingData, refresh } = useDashboard();
+  const { unreadCount } = useNotifications();
   
   // Actualizar onRefresh:
   const onRefresh = async () => {
-  setRefreshing(true);
-  await refresh();
-  setRefreshing(false);
-};
+    setRefreshing(true);
+    await refresh();
+    setRefreshing(false);
+  };
 
   useEffect(() => {
     // Animaciones de entrada
@@ -103,11 +105,18 @@ export const DashboardScreen = ({ navigation }: any) => {
             <Text style={styles.userName}>{user?.name?.split(' ')[0] || 'Usuario'}</Text>
           </View>
           <View style={styles.headerButtons}>
-            <TouchableOpacity style={styles.notificationButton}>
+            <TouchableOpacity 
+              style={styles.notificationButton}
+              onPress={() => navigation.navigate('Notifications')}
+            >
               <Bell size={24} color={theme.colors.white} />
-              <View style={styles.notificationBadge}>
-                <Text style={styles.notificationBadgeText}>3</Text>
-              </View>
+              {unreadCount > 0 && (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </Text>
+                </View>
+              )}
             </TouchableOpacity>
             <TouchableOpacity 
               style={styles.profileButton}
@@ -257,59 +266,67 @@ export const DashboardScreen = ({ navigation }: any) => {
       >
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Movimientos Recientes</Text>
-          <TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('Savings')}>
             <Text style={styles.seeAllText}>Ver todos</Text>
           </TouchableOpacity>
         </View>
 
-        {dashboardData.recentTransactions.map((transaction) => (
-          <Card key={transaction.id} style={styles.transactionCard} variant="outlined">
-            <View style={styles.transactionContent}>
-              <View
-                style={[
-                  styles.transactionIcon,
-                  {
-                    backgroundColor:
-                      transaction.amount > 0
-                        ? theme.colors.success[100]
-                        : theme.colors.error[100],
-                  },
-                ]}
-              >
-                {transaction.amount > 0 ? (
-                  <ArrowDownRight
-                    size={20}
-                    color={theme.colors.success[600]}
-                  />
-                ) : (
-                  <ArrowUpRight size={20} color={theme.colors.error[600]} />
-                )}
-              </View>
-              <View style={styles.transactionDetails}>
-                <Text style={styles.transactionDescription}>
-                  {transaction.description}
+        {dashboardData.recentTransactions.length > 0 ? (
+          dashboardData.recentTransactions.map((transaction) => (
+            <Card key={transaction.id} style={styles.transactionCard} variant="outlined">
+              <View style={styles.transactionContent}>
+                <View
+                  style={[
+                    styles.transactionIcon,
+                    {
+                      backgroundColor:
+                        transaction.amount > 0
+                          ? theme.colors.success[100]
+                          : theme.colors.error[100],
+                    },
+                  ]}
+                >
+                  {transaction.amount > 0 ? (
+                    <ArrowDownRight
+                      size={20}
+                      color={theme.colors.success[600]}
+                    />
+                  ) : (
+                    <ArrowUpRight size={20} color={theme.colors.error[600]} />
+                  )}
+                </View>
+                <View style={styles.transactionDetails}>
+                  <Text style={styles.transactionDescription}>
+                    {transaction.description}
+                  </Text>
+                  <Text style={styles.transactionDate}>
+                    {formatDate(transaction.date, 'dd MMM yyyy')}
+                  </Text>
+                </View>
+                <Text
+                  style={[
+                    styles.transactionAmount,
+                    {
+                      color:
+                        transaction.amount > 0
+                          ? theme.colors.success[600]
+                          : theme.colors.error[600],
+                    },
+                  ]}
+                >
+                  {transaction.amount > 0 ? '+' : ''}
+                  {formatCurrency(Math.abs(transaction.amount))}
                 </Text>
-                <Text style={styles.transactionDate}>
-                  {formatDate(transaction.date, 'dd MMM yyyy')}
-                </Text>
               </View>
-              <Text
-                style={[
-                  styles.transactionAmount,
-                  {
-                    color:
-                      transaction.amount > 0
-                        ? theme.colors.success[600]
-                        : theme.colors.error[600],
-                  },
-                ]}
-              >
-                {transaction.amount > 0 ? '+' : ''}
-                {formatCurrency(Math.abs(transaction.amount))}
-              </Text>
-            </View>
+            </Card>
+          ))
+        ) : (
+          <Card style={styles.emptyCard} variant="outlined">
+            <Text style={styles.emptyText}>
+              No hay transacciones recientes
+            </Text>
           </Card>
-        ))}
+        )}
       </Animated.View>
 
       {/* Espaciado inferior */}
@@ -346,6 +363,11 @@ const styles = StyleSheet.create({
     fontWeight: theme.fontWeight.bold,
     color: theme.colors.white,
   },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
   notificationButton: {
     width: 44,
     height: 44,
@@ -360,16 +382,27 @@ const styles = StyleSheet.create({
     top: 8,
     right: 8,
     backgroundColor: theme.colors.error[500],
-    width: 18,
+    minWidth: 18,
     height: 18,
     borderRadius: 9,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 4,
   },
   notificationBadgeText: {
     color: theme.colors.white,
     fontSize: 10,
     fontWeight: theme.fontWeight.bold,
+  },
+  profileButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   balanceCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
@@ -518,23 +551,15 @@ const styles = StyleSheet.create({
     fontSize: theme.fontSize.lg,
     fontWeight: theme.fontWeight.bold,
   },
+  emptyCard: {
+    padding: theme.spacing.lg,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: theme.fontSize.sm,
+    color: theme.colors.gray[500],
+  },
   bottomSpacing: {
     height: 100,
-  },
-   headerButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  
-  profileButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
 });
