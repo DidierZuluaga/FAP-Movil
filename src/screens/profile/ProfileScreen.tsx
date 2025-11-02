@@ -1,4 +1,4 @@
-
+import { Platform } from 'react-native';
 import React, { useState } from 'react';
 import {
   View,
@@ -35,30 +35,38 @@ export const ProfileScreen = () => {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const handleLogout = () => {
-    RNAlert.alert(
-      'Cerrar Sesión',
-      '¿Estás seguro que deseas salir?',
-      [
-        {
-          text: 'Cancelar',
-          style: 'cancel',
-        },
-        {
-          text: 'Salir',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setIsLoggingOut(true);
-              await logout();
-            } catch (error) {
-              console.error('Error al cerrar sesión:', error);
-            } finally {
-              setIsLoggingOut(false);
-            }
-          },
-        },
-      ]
-    );
+    if (Platform.OS === 'web') {
+      // Para web, usar confirm nativo
+      if (window.confirm('¿Estás seguro que deseas salir?')) {
+        performLogout();
+      }
+    } else {
+      // Para móvil, usar Alert nativo
+      RNAlert.alert(
+        'Cerrar Sesión',
+        '¿Estás seguro que deseas salir?',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Salir', style: 'destructive', onPress: performLogout },
+        ]
+      );
+    }
+  };
+
+  const performLogout = async () => {
+    try {
+      setIsLoggingOut(true);
+      await logout();
+    } catch (error) {
+      console.error('Error al cerrar sesión:', error);
+      if (Platform.OS === 'web') {
+        alert('Error al cerrar sesión. Intenta de nuevo.');
+      } else {
+        RNAlert.alert('Error', 'No se pudo cerrar sesión. Intenta de nuevo.');
+      }
+    } finally {
+      setIsLoggingOut(false);
+    }
   };
 
   const handleEditProfile = () => {
@@ -74,12 +82,7 @@ export const ProfileScreen = () => {
       'Función de cambio de foto próximamente disponible'
     );
   };
-const getUserRoleLabel = (role: any): string => {
-  if (role && typeof role === 'string' && ROLE_LABELS.hasOwnProperty(role)) {
-    return ROLE_LABELS[role as keyof typeof ROLE_LABELS];
-  }
-  return 'No especificado';
-};
+
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Header con gradiente */}
@@ -150,8 +153,8 @@ const getUserRoleLabel = (role: any): string => {
             <View style={styles.infoText}>
               <Text style={styles.infoLabel}>Rol</Text>
               <Text style={styles.infoValue}>
-                {getUserRoleLabel(user?.role)}
-                </Text>
+                {user?.role ? ROLE_LABELS[user.role] : 'No especificado'}
+              </Text>
             </View>
           </View>
 

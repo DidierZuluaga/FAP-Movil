@@ -1,3 +1,4 @@
+import { useDashboard } from '../../hooks/useDashboard';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -37,38 +38,14 @@ export const DashboardScreen = ({ navigation }: any) => {
     notifications: new Animated.Value(0),
   });
 
-  // Datos de ejemplo (esto vendrá de Firebase después)
-  const dashboardData = {
-    balance: 5250000,
-    interests: 125000,
-    activeLoans: 1,
-    nextMeetings: 2,
-    monthlyContribution: 500000,
-    recentTransactions: [
-      {
-        id: '1',
-        type: 'saving',
-        amount: 500000,
-        description: 'Aporte mensual',
-        date: new Date(),
-      },
-      {
-        id: '2',
-        type: 'interest',
-        amount: 25000,
-        description: 'Intereses generados',
-        date: new Date(Date.now() - 86400000),
-      },
-      {
-        id: '3',
-        type: 'loan_payment',
-        amount: -169500,
-        description: 'Cuota préstamo',
-        date: new Date(Date.now() - 172800000),
-      },
-    ],
-    savingsGrowth: 8.5, // Porcentaje de crecimiento
-  };
+  const { data: dashboardData, isLoading: loadingData, refresh } = useDashboard();
+  
+  // Actualizar onRefresh:
+  const onRefresh = async () => {
+  setRefreshing(true);
+  await refresh();
+  setRefreshing(false);
+};
 
   useEffect(() => {
     // Animaciones de entrada
@@ -93,13 +70,7 @@ export const DashboardScreen = ({ navigation }: any) => {
       }),
     ]).start();
   }, []);
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    // Aquí cargarías datos reales desde Firebase
-    setTimeout(() => setRefreshing(false), 1500);
-  };
-
+  
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return '¡Buenos días';
