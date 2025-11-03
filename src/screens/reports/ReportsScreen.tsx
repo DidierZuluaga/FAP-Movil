@@ -204,7 +204,9 @@ export const ReportsScreen = () => {
     }
   };
 
-  const maxAmount = Math.max(...reportData.monthlyData.map(d => d.amount), 1);
+  // Calcular máximo con mínimo de 50000 para que las barras tengan buena proporción
+const amounts = reportData.monthlyData.map(d => d.amount);
+const maxAmount = Math.max(...amounts, 50000); // Mínimo 50,000 para buena visualización
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -277,26 +279,37 @@ export const ReportsScreen = () => {
             <Card style={styles.chartCard}>
               <Text style={styles.chartTitle}>Evolución de Ahorros Mensuales</Text>
               <View style={styles.chart}>
-                {reportData.monthlyData.map((item, index) => (
-                  <View key={index} style={styles.bar}>
-                    <View
-                      style={[
-                        styles.barFill,
-                        {
-                          height: `${(item.amount / maxAmount) * 100}%`,
-                          backgroundColor: theme.colors.primary[500],
-                        },
-                      ]}
-                    >
-                      {item.amount > 0 && (
-                        <Text style={styles.barValue}>
-                          {(item.amount / 1000).toFixed(0)}k
-                        </Text>
-                      )}
-                    </View>
-                    <Text style={styles.barLabel}>{item.month}</Text>
-                  </View>
-                ))}
+                {reportData.monthlyData.map((item, index) => {
+  // CALCULAR ALTURA CORRECTAMENTE con mínimo del 15%
+  const rawHeight = (item.amount / maxAmount) * 100;
+  const height = Math.max(rawHeight, 15); // Mínimo 15% de altura
+  
+  return (
+    <View key={index} style={styles.bar}>
+      <View
+        style={[
+          styles.barFill,
+          {
+            height: `${height}%`,
+            backgroundColor: theme.colors.primary[500],
+            minHeight: 40, // Altura mínima en píxeles
+          },
+        ]}
+      >
+        {item.amount > 0 && (
+          <Text style={styles.barValue}>
+            {(item.amount / 1000).toFixed(0)}k
+          </Text>
+        )}
+      </View>
+      <Text style={styles.barLabel}>{item.month}</Text>
+      {/* Mostrar valor exacto debajo del mes */}
+      <Text style={[styles.barLabel, { marginTop: 4, fontWeight: 'bold' }]}>
+        {formatCurrency(item.amount)}
+      </Text>
+    </View>
+  );
+})}
               </View>
             </Card>
 
@@ -396,7 +409,7 @@ const styles = StyleSheet.create({
   chartTitle: { fontSize: theme.fontSize.lg, fontWeight: theme.fontWeight.bold, color: theme.colors.gray[900], marginBottom: theme.spacing.lg },
   chart: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', height: 200, gap: theme.spacing.sm },
   bar: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', gap: theme.spacing.sm },
-  barFill: { width: '100%', borderRadius: theme.borderRadius.md, justifyContent: 'flex-start', alignItems: 'center', paddingTop: theme.spacing.xs, minHeight: 30 },
+  barFill: { width: '80%', borderRadius: theme.borderRadius.md, justifyContent: 'flex-start', alignItems: 'center', paddingTop: theme.spacing.xs, minHeight: 40 },
   barValue: { fontSize: theme.fontSize.xs, color: theme.colors.white, fontWeight: theme.fontWeight.semibold },
   barLabel: { fontSize: theme.fontSize.xs, color: theme.colors.gray[600], fontWeight: theme.fontWeight.medium },
   distributionCard: { padding: theme.spacing.lg, marginBottom: theme.spacing.lg },

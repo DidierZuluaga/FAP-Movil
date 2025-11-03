@@ -11,7 +11,7 @@ import { RegisterScreen } from '../screens/auth/RegisterScreen';
 import { theme } from '../config/theme';
 
 // Importar pantallas si existen, sino usar placeholder
-let DashboardScreen, SavingsScreen, LoansScreen, ReportsScreen, ProfileScreen;
+let DashboardScreen, SavingsScreen, LoansScreen, ReportsScreen, ProfileScreen, NotificationsScreen;
 
 try {
   DashboardScreen = require('../screens/dashboard/DashboardScreen').DashboardScreen;
@@ -33,6 +33,14 @@ try {
   ProfileScreen = require('../screens/profile/ProfileScreen').ProfileScreen;
 } catch { ProfileScreen = () => <View style={{flex:1,justifyContent:'center',alignItems:'center'}}><Text>Perfil en desarrollo</Text></View>; }
 
+try {
+  NotificationsScreen = require('../screens/notifications/NotificationsScreen').NotificationsScreen;
+} catch { 
+  NotificationsScreen = () => <View style={{flex:1,justifyContent:'center',alignItems:'center'}}>
+    <Text>Notificaciones en desarrollo</Text>
+  </View>; 
+}
+
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -52,7 +60,17 @@ export const AppNavigator = () => {
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {isAuthenticated ? <Stack.Screen name="Main" component={MainTabs} /> : (<><Stack.Screen name="Login" component={LoginScreen} /><Stack.Screen name="Register" component={RegisterScreen} /></>)}
+        {isAuthenticated ? (
+          <>
+            <Stack.Screen name="Main" component={MainTabs} />
+            <Stack.Screen name="Notifications" component={NotificationsScreen} />
+          </>
+        ) : (
+          <>
+            <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="Register" component={RegisterScreen} />
+          </>
+        )}
       </Stack.Navigator>
     </NavigationContainer>
   );

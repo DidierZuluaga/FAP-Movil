@@ -245,6 +245,125 @@ class LoansService {
     const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 6); // Día 6 del próximo mes
     return nextMonth;
   }
-}
+  
+  // Aprobar préstamo (para administradores)
+  async approveLoan(loanId: string): Promise<void> {
+    try {
+      console.log('✅ Aprobando préstamo:', loanId);
+      
+      const loanRef = doc(db, this.loansCollection, loanId);
+      await updateDoc(loanRef, {
+        status: 'activo',
+        approvalDate: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      });
 
-export const loansService = new LoansService();
+      console.log('✅ Préstamo aprobado exitosamente');
+    } catch (error: any) {
+      console.error('❌ Error aprobando préstamo:', error);
+      throw new Error('No se pudo aprobar el préstamo');
+    }
+  }
+
+  // Rechazar préstamo (para administradores)
+  async rejectLoan(loanId: string, reason?: string): Promise<void> {
+    try {
+      console.log('❌ Rechazando préstamo:', loanId);
+      
+      const loanRef = doc(db, this.loansCollection, loanId);
+      await updateDoc(loanRef, {
+        status: 'rechazado',
+        rejectionReason: reason || 'Sin especificar',
+        updatedAt: Timestamp.now(),
+      });
+
+      console.log('✅ Préstamo rechazado exitosamente');
+    } catch (error: any) {
+      console.error('❌ Error rechazando préstamo:', error);
+      throw new Error('No se pudo rechazar el préstamo');
+    }
+  }
+
+  // Obtener todos los préstamos pendientes (para administradores)
+  async getPendingLoans(): Promise<Loan[]> {
+    try {
+      const q = query(
+        collection(db, this.loansCollection),
+        where('status', '==', 'pendiente'),
+        orderBy('requestDate', 'asc')
+      );
+
+      const querySnapshot = await getDocs(q);
+      const loans: Loan[] = [];
+
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        loans.push({
+          id: doc.id,
+          userId: data.userId,
+          codeudorId: data.codeudorId,
+          amount: data.amount,
+          balance: data.balance,
+          term: data.term,
+          interestRate: data.interestRate,
+          monthlyPayment: data.monthlyPayment,
+          status: data.status,
+          description: data.description,
+          requestDate: data.requestDate.toDate(),
+          approvalDate: data.approvalDate?.toDate(),
+          codeudorStatus: data.codeudorStatus,
+          documentsURL: data.documentsURL,
+          createdAt: data.createdAt.toDate(),
+          updatedAt: data.updatedAt.toDate(),
+        } as Loan);
+      });
+
+      return loans;
+    } catch (error: any) {
+      console.error('Error al obtener préstamos pendientes:', error);
+      return [];
+    }
+  }
+    // Obtener TODOS los préstamos (para administradores)
+  async getAllLoans(): Promise<Loan[]> {
+    try {
+      const q = query(
+        collection(db, this.loansCollection),
+        orderBy('requestDate', 'desc')
+      );
+
+      const querySnapshot = await getDocs(q);
+      const loans: Loan[] = [];
+
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        loans.push({
+          id: doc.id,
+          userId: data.userId,
+          codeudorId: data.codeudorId,
+          amount: data.amount,
+          balance: data.balance,
+          term: data.term,
+          interestRate: data.interestRate,
+          monthlyPayment: data.monthlyPayment,
+          status: data.status,
+          description: data.description,
+          requestDate: data.requestDate.toDate(),
+          approvalDate: data.approvalDate?.toDate(),
+          codeudorStatus: data.codeudorStatus,
+          documentsURL: data.documentsURL,
+          createdAt: data.createdAt.toDate(),
+          updatedAt: data.updatedAt.toDate(),
+        } as Loan);
+      });
+
+      console.log(`📊 Cargados ${loans.length} préstamos del sistema`);
+      return loans;
+    } catch (error: any) {
+      console.error('Error al obtener todos los préstamos:', error);
+      return [];
+    }
+  }
+}  
+
+export const loansService = new LoansService();  

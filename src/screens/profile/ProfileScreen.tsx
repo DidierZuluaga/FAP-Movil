@@ -143,7 +143,7 @@ export const ProfileScreen = ({ navigation }: any) => {
     try {
       setIsSaving(true);
 
-      await profileService.updateProfile(user.id, {
+      await profileService.updateUserProfile(user.id, {
         name: editForm.name,
         dateOfBirth: new Date(editForm.dateOfBirth),
       });

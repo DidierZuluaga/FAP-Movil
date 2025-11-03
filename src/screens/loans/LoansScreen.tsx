@@ -1,3 +1,4 @@
+import { useAdmin } from '../../hooks/useAdmin';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -31,8 +32,47 @@ import { useAuth } from '../../hooks/useAuth';
 import { calculateMonthlyPayment, generateAmortizationTable } from '../../utils/calculations';
 import { DEFAULT_INTEREST_RATE_ASSOCIATE, DEFAULT_INTEREST_RATE_CLIENT } from '../../utils/constants';
 
+// DEBUG TEMPORAL - Función para verificar préstamos
+const debugLoans = async (isAdmin: boolean, userId: string) => {
+  console.log('🔍 INICIANDO DEBUG DE PRÉSTAMOS...');
+  console.log('👤 User ID:', userId);
+  console.log('👑 Es Admin:', isAdmin);
+  
+  try {
+    // 1. Verificar todos los préstamos
+    const allLoans = await loansService.getAllLoans();
+    console.log('📊 TOTAL de préstamos en BD:', allLoans.length);
+    
+    // 2. Verificar préstamos pendientes
+    const pendingLoans = await loansService.getPendingLoans();
+    console.log('⏳ Préstamos PENDIENTES:', pendingLoans.length);
+    
+    // 3. Mostrar detalles de cada préstamo
+    allLoans.forEach((loan, index) => {
+      console.log(`📋 Préstamo ${index + 1}:`, {
+        id: loan.id,
+        usuario: loan.userId,
+        monto: loan.amount,
+        estado: loan.status,
+        descripción: loan.description || 'Sin descripción'
+      });
+    });
+    
+    if (allLoans.length === 0) {
+      console.log('⚠️ NO HAY PRÉSTAMOS EN LA BASE DE DATOS');
+      console.log('💡 Los asociados deben solicitar préstamos para que aparezcan aquí');
+    }
+    
+    return allLoans;
+  } catch (error) {
+    console.error('❌ ERROR en debug:', error);
+    return [];
+  }
+};
+
 export const LoansScreen = () => {
   const { user } = useAuth();
+  const { isAdmin, isRegularUser } = useAdmin(); 
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showAmortizationModal, setShowAmortizationModal] = useState(false);
@@ -60,16 +100,43 @@ export const LoansScreen = () => {
   });
   const [paymentErrors, setPaymentErrors] = useState<any>({});
 
-  // Cargar préstamos
   const loadLoans = async () => {
-    if (!user) return;
+  if (!user) return;
 
-    try {
-      setIsLoading(true);
-      const userLoans = await loansService.getUserLoans(user.id);
+  try {
+    setIsLoading(true);
+    
+    let userLoans;
+    
+    // SI ES ADMIN, CARGAR TODOS LOS PRÉSTAMOS DEL SISTEMA
+    if (isAdmin) {
+      console.log('👑 Admin: Cargando todos los préstamos del sistema...');
+      
+      // EJECUTAR DEBUG
+      await debugLoans(isAdmin, user.id);
+      
+      userLoans = await loansService.getAllLoans();
+      
+      // ✅ CORRECCIÓN: Para ADMIN, solo mostrar préstamos PENDIENTES en la sección principal
+const pendingLoans = userLoans.filter(loan => loan.status === 'pendiente');
+const approvedLoans = userLoans.filter(loan => loan.status === 'aprobado' || loan.status === 'activo');
+const paidLoans = userLoans.filter(loan => loan.status === 'pagado');
+const rejectedLoans = userLoans.filter(loan => loan.status === 'rechazado');
+
+console.log(`📊 PENDIENTES: ${pendingLoans.length}, APROBADOS: ${approvedLoans.length}, PAGADOS: ${paidLoans.length}, RECHAZADOS: ${rejectedLoans.length}`);
+
+// ✅ Los préstamos PENDIENTES van a la sección principal para aprobación
+setLoans(pendingLoans);
+// ✅ Los préstamos aprobados/activos NO van al historial (solo pagados y rechazados)
+setLoanHistory([...paidLoans, ...rejectedLoans]);
+      
+    } else {
+      // SI ES USUARIO NORMAL, CARGAR SOLO SUS PRÉSTAMOS
+      console.log('👤 Usuario: Cargando préstamos propios...');
+      userLoans = await loansService.getUserLoans(user.id);
 
       const active = userLoans.filter(
-        l => l.status === 'activo' || l.status === 'aprobado'
+        l => l.status === 'activo' || l.status === 'aprobado' || l.status === 'pendiente'
       );
       const history = userLoans.filter(
         l => l.status === 'pagado' || l.status === 'rechazado'
@@ -77,12 +144,13 @@ export const LoansScreen = () => {
 
       setLoans(active);
       setLoanHistory(history);
-    } catch (error) {
-      console.error('Error cargando préstamos:', error);
-    } finally {
-      setIsLoading(false);
     }
-  };
+  } catch (error) {
+    console.error('Error cargando préstamos:', error);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   useEffect(() => {
     loadLoans();
@@ -132,60 +200,66 @@ export const LoansScreen = () => {
     return Object.keys(errors).length === 0;
   };
 
-  // Solicitar préstamo
   const handleRequestLoan = async () => {
-    if (!validateRequestForm() || !user) return;
+  if (!validateRequestForm() || !user) return;
 
-    try {
-      setIsSaving(true);
+  try {
+    setIsSaving(true);
 
-      const amount = parseFloat(requestForm.amount);
-      const term = parseInt(requestForm.term);
-      const rate = user.role === 'asociado' 
-        ? DEFAULT_INTEREST_RATE_ASSOCIATE 
-        : DEFAULT_INTEREST_RATE_CLIENT;
+    const amount = parseFloat(requestForm.amount);
+    const term = parseInt(requestForm.term);
+    const rate = user.role === 'asociado' 
+      ? DEFAULT_INTEREST_RATE_ASSOCIATE 
+      : DEFAULT_INTEREST_RATE_CLIENT;
 
-      await loansService.createLoan(
-        user.id,
-        amount,
-        term,
-        requestForm.description,
-        rate
+    // 1. Crear préstamo
+    await loansService.createLoan(
+      user.id,
+      amount,
+      term,
+      requestForm.description,
+      rate
+    );
+
+    // 2. Crear notificación
+    await notificationsService.createNotification(
+      user.id,
+      'general',
+      "Solicitud Enviada", 
+      "Tu solicitud de préstamo ha sido enviada exitosamente",
+      "/loans"
+    );
+
+    // 3. MOSTRAR MENSAJE
+    if (Platform.OS === 'web') {
+      alert('✅ Solicitud enviada exitosamente. Recibirás una notificación cuando sea aprobada.');
+    } else {
+      RNAlert.alert(
+        'Éxito',
+        'Solicitud enviada exitosamente. Recibirás una notificación cuando sea aprobada.'
       );
-
-      // Crear notificación
-      await notificationsService.createNotification(
-  user.id, // ← así se accede al ID del usuario
-  'general',
-  "Solicitud Enviada", 
-  "Tu solicitud de préstamo ha sido enviada exitosamente",
-  "/loans"
-);
-
-      if (Platform.OS === 'web') {
-        alert('✅ Solicitud enviada exitosamente. Recibirás una notificación cuando sea aprobada.');
-      } else {
-        RNAlert.alert(
-          'Éxito',
-          'Solicitud enviada exitosamente. Recibirás una notificación cuando sea aprobada.'
-        );
-      }
-
-      // Limpiar y cerrar
-      setRequestForm({ amount: '', term: '12', description: '' });
-      setShowRequestModal(false);
-      await loadLoans();
-    } catch (error: any) {
-      console.error('Error al solicitar préstamo:', error);
-      if (Platform.OS === 'web') {
-        alert('❌ Error al enviar la solicitud. Intenta de nuevo.');
-      } else {
-        RNAlert.alert('Error', 'No se pudo enviar la solicitud. Intenta de nuevo.');
-      }
-    } finally {
-      setIsSaving(false);
     }
-  };
+
+    // 4. LIMPIAR FORMULARIO
+    setRequestForm({ amount: '', term: '12', description: '' });
+    setShowRequestModal(false);
+    
+    // 5. ESPERAR UN POCO Y RECARGAR (IMPORTANTE)
+    setTimeout(async () => {
+      await loadLoans();
+    }, 1000);
+
+  } catch (error: any) {
+    console.error('Error al solicitar préstamo:', error);
+    if (Platform.OS === 'web') {
+      alert('❌ Error al enviar la solicitud. Intenta de nuevo.');
+    } else {
+      RNAlert.alert('Error', 'No se pudo enviar la solicitud. Intenta de nuevo.');
+    }
+  } finally {
+    setIsSaving(false);
+  }
+};
 
   // Validar formulario de pago
   const validatePaymentForm = () => {
@@ -205,51 +279,72 @@ export const LoansScreen = () => {
   };
 
   // Registrar pago
-  const handleRegisterPayment = async () => {
-    if (!validatePaymentForm() || !user || !selectedLoan) return;
+const handleRegisterPayment = async () => {
+  if (!validatePaymentForm() || !user || !selectedLoan) return;
 
+  try {
+    setIsSaving(true);
+
+    const amount = parseFloat(paymentForm.amount);
+
+    console.log('💰 Intentando registrar abono:', {
+      loanId: selectedLoan.id,
+      userId: user.id,
+      amount: amount,
+      loanBalance: selectedLoan.balance
+    });
+
+    // 1. Registrar el pago (esto funciona)
+    await loansService.registerPayment(
+      selectedLoan.id,
+      user.id,
+      amount
+    );
+
+    // 2. Intentar crear notificación (pero si falla, no afecta el pago)
     try {
-      setIsSaving(true);
-
-      const amount = parseFloat(paymentForm.amount);
-
-      await loansService.registerPayment(
-        selectedLoan.id,
-        user.id,
-        amount
-      );
-
-      // Crear notificación
       await notificationsService.createNotification(
         user.id,
         'general',
         '💰 Abono Registrado',
-        `Tu abono de ${formatCurrency(amount)} ha sido registrado exitosamente.`
+        `Tu abono de ${formatCurrency(amount)} ha sido registrado exitosamente.`,
+        "/loans"
       );
-
-      if (Platform.OS === 'web') {
-        alert('✅ Abono registrado exitosamente');
-      } else {
-        RNAlert.alert('Éxito', 'Abono registrado exitosamente');
-      }
-
-      // Limpiar y cerrar
-      setPaymentForm({ amount: '' });
-      setShowPaymentModal(false);
-      setSelectedLoan(null);
-      await loadLoans();
-    } catch (error: any) {
-      console.error('Error al registrar pago:', error);
-      if (Platform.OS === 'web') {
-        alert('❌ Error al registrar el abono. Intenta de nuevo.');
-      } else {
-        RNAlert.alert('Error', 'No se pudo registrar el abono. Intenta de nuevo.');
-      }
-    } finally {
-      setIsSaving(false);
+      console.log('✅ Notificación creada exitosamente');
+    } catch (notificationError) {
+      console.warn('⚠️ No se pudo crear la notificación, pero el abono se registró:', notificationError);
+      // NO lanzamos error, solo mostramos advertencia
     }
-  };
 
+    if (Platform.OS === 'web') {
+      alert('✅ Abono registrado exitosamente');
+    } else {
+      RNAlert.alert('Éxito', 'Abono registrado exitosamente');
+    }
+
+    // Limpiar y cerrar
+    setPaymentForm({ amount: '' });
+    setShowPaymentModal(false);
+    setSelectedLoan(null);
+    await loadLoans();
+  } catch (error: any) {
+    console.error('❌ Error al registrar pago:', error);
+    console.error('🔧 Detalles del error:', {
+      code: error.code,
+      message: error.message,
+      loanId: selectedLoan?.id,
+      userId: user?.id
+    });
+    
+    if (Platform.OS === 'web') {
+      alert(`❌ Error al registrar el abono: ${error.message}`);
+    } else {
+      RNAlert.alert('Error', `No se pudo registrar el abono: ${error.message}`);
+    }
+  } finally {
+    setIsSaving(false);
+  }
+};
   // Abrir modal de pago
   const openPaymentModal = (loan: any) => {
     setSelectedLoan(loan);
@@ -272,13 +367,40 @@ export const LoansScreen = () => {
       </LinearGradient>
 
       <View style={styles.content}>
-        {/* Request Loan Button */}
-        <Button
-          title="Solicitar Nuevo Préstamo"
-          onPress={() => setShowRequestModal(true)}
-          icon={<Plus size={20} color={theme.colors.white} />}
-          fullWidth
-        />
+  {/* SECCIÓN DEBUG - SOLO PARA ADMIN */}
+  {isAdmin && loans.length === 0 && (
+    <Card style={styles.debugCard}>
+      <Text style={styles.debugTitle}>💡 Información para Administrador</Text>
+      <Text style={styles.debugText}>
+        No hay préstamos en el sistema.{'\n'}
+        Los préstamos de los asociados aparecerán aquí cuando:{'\n'}
+        • Un asociado solicite un préstamo{'\n'} 
+        • El estado sea "pendiente"{'\n'}
+        • Puedas aprobarlos con el botón "Aprobar"
+      </Text>
+      <Button
+        title="🔄 Verificar Base de Datos"
+        onPress={async () => {
+          const loans = await debugLoans(isAdmin, user?.id || '');
+          if (loans.length === 0) {
+            alert('✅ Confirmado: No hay préstamos en la base de datos.\n\nLos préstamos aparecerán cuando los asociados los soliciten.');
+          }
+        }}
+        variant="outline"
+        size="sm"
+      />
+    </Card>
+  )}
+
+  {/* Request Loan Button */}
+  {!isAdmin && (
+    <Button
+      title="Solicitar Nuevo Préstamo"
+      onPress={() => setShowRequestModal(true)}
+      icon={<Plus size={20} color={theme.colors.white} />}
+      fullWidth
+    />
+  )}
 
         {isLoading ? (
           <ActivityIndicator 
@@ -298,20 +420,49 @@ export const LoansScreen = () => {
                   const nextPayment = loansService.getNextPaymentDate(loan);
 
                   return (
-                    <Card key={loan.id} style={styles.loanCard}>
-                      <View style={styles.loanHeader}>
-                        <View>
-                          <Text style={styles.loanLabel}>Monto Aprobado</Text>
-                          <Text style={styles.loanAmount}>
-                            {formatCurrency(loan.amount)}
-                          </Text>
-                        </View>
-                        <View style={styles.statusBadge}>
-                          <Text style={styles.statusText}>
-                            {loan.status === 'pendiente' ? 'Pendiente' : 'Activo'}
-                          </Text>
-                        </View>
-                      </View>
+  <Card key={loan.id} style={styles.loanCard}>
+    {/* AGREGAR ESTA SECCIÓN PARA MOSTRAR INFO DEL USUARIO (SOLO ADMIN) */}
+    {isAdmin && (
+      <View style={styles.userInfo}>
+        <Text style={styles.userInfoText}>
+          📋 Préstamo de usuario: {loan.userId}
+        </Text>
+        {loan.userId === user?.id && (
+          <Text style={styles.ownLoanText}>(Tu préstamo)</Text>
+        )}
+      </View>
+    )}
+    
+    <View style={styles.loanHeader}>
+  <View>
+    <Text style={styles.loanLabel}>
+      {loan.status === 'pendiente' ? 'Monto Solicitado' : 'Monto Aprobado'}
+    </Text>
+    <Text style={styles.loanAmount}>
+      {formatCurrency(loan.amount)}
+    </Text>
+  </View>
+  <View style={[
+    styles.statusBadge,
+    { 
+      backgroundColor: loan.status === 'pendiente' 
+        ? theme.colors.warning[100] 
+        : theme.colors.success[100] 
+    }
+  ]}>
+    <Text style={[
+      styles.statusText,
+      { 
+        color: loan.status === 'pendiente' 
+          ? theme.colors.warning[700] 
+          : theme.colors.success[700] 
+      }
+    ]}>
+      {loan.status === 'pendiente' ? 'Pendiente' : 
+       loan.status === 'aprobado' ? 'Aprobado' : 'Activo'}
+    </Text>
+  </View>
+</View>
 
                       <View style={styles.loanStats}>
                         <View style={styles.loanStat}>
@@ -357,32 +508,93 @@ export const LoansScreen = () => {
                       </View>
 
                       <View style={styles.loanActions}>
-                        <Button
-                          title="Registrar Abono"
-                          onPress={() => openPaymentModal(loan)}
-                          variant="primary"
-                          size="sm"
-                          style={styles.actionButton}
-                          icon={<DollarSign size={16} color={theme.colors.white} />}
-                        />
-                        <Button
-                          title="Ver Tabla"
-                          onPress={() => {
-                            setSelectedLoan(loan);
-                            const table = generateAmortizationTable(
-                              loan.amount,
-                              loan.interestRate,
-                              loan.term
-                            );
-                            setAmortizationTable(table);
-                            setShowAmortizationModal(true);
-                          }}
-                          variant="outline"
-                          size="sm"
-                          style={styles.actionButton}
-                          icon={<FileText size={16} color={theme.colors.primary[600]} />}
-                        />
-                      </View>
+  {loan.status === 'pendiente' && isAdmin && (
+    <>
+      {/* Botón Aprobar */}
+      <Button
+        title="Aprobar"
+        onPress={async () => {
+          try {
+            await loansService.approveLoan(loan.id);
+            if (Platform.OS === 'web') {
+              alert('✅ Préstamo aprobado exitosamente');
+            } else {
+              RNAlert.alert('Éxito', 'Préstamo aprobado exitosamente');
+            }
+            await loadLoans();
+          } catch (error: any) {
+            console.error('Error aprobando préstamo:', error);
+            if (Platform.OS === 'web') {
+              alert('❌ Error aprobando préstamo');
+            } else {
+              RNAlert.alert('Error', 'No se pudo aprobar el préstamo');
+            }
+          }
+        }}
+        variant="primary"
+        size="sm"
+        style={styles.actionButton}
+        icon={<CheckCircle size={16} color={theme.colors.white} />}
+      />
+      
+      {/* ✅ NUEVO BOTÓN RECHAZAR */}
+      <Button
+        title="Rechazar"
+        onPress={async () => {
+          try {
+            await loansService.rejectLoan(loan.id);
+            if (Platform.OS === 'web') {
+              alert('❌ Préstamo rechazado exitosamente');
+            } else {
+              RNAlert.alert('Éxito', 'Préstamo rechazado exitosamente');
+            }
+            await loadLoans();
+          } catch (error: any) {
+            console.error('Error rechazando préstamo:', error);
+            if (Platform.OS === 'web') {
+              alert('❌ Error rechazando préstamo');
+            } else {
+              RNAlert.alert('Error', 'No se pudo rechazar el préstamo');
+            }
+          }
+        }}
+        variant="outline"
+        size="sm"
+        style={styles.actionButton}
+        icon={<X size={16} color={theme.colors.error[600]} />}
+      />
+    </>
+  )}
+  
+  {loan.status !== 'pendiente' && (
+    <Button
+      title="Registrar Abono"
+      onPress={() => openPaymentModal(loan)}
+      variant="primary"
+      size="sm"
+      style={styles.actionButton}
+      icon={<DollarSign size={16} color={theme.colors.white} />}
+    />
+  )}
+  
+  <Button
+    title="Ver Tabla"
+    onPress={() => {
+      setSelectedLoan(loan);
+      const table = generateAmortizationTable(
+        loan.amount,
+        loan.interestRate,
+        loan.term
+      );
+      setAmortizationTable(table);
+      setShowAmortizationModal(true);
+    }}
+    variant="outline"
+    size="sm"
+    style={styles.actionButton}
+    icon={<FileText size={16} color={theme.colors.primary[600]} />}
+  />
+</View>
                     </Card>
                   );
                 })}
@@ -444,11 +656,25 @@ export const LoansScreen = () => {
                           {formatDate(loan.requestDate, 'dd MMM yyyy')}
                         </Text>
                       </View>
-                      <View style={styles.paidBadge}>
-                        <Text style={styles.paidText}>
-                          {loan.status === 'pagado' ? 'Pagado' : 'Rechazado'}
-                        </Text>
-                      </View>
+                      <View style={[
+  styles.statusBadge,
+  { 
+    backgroundColor: loan.status === 'pagado' 
+      ? theme.colors.success[100] 
+      : theme.colors.error[100] 
+  }
+]}>
+  <Text style={[
+    styles.statusText,
+    { 
+      color: loan.status === 'pagado' 
+        ? theme.colors.success[700] 
+        : theme.colors.error[700] 
+    }
+  ]}>
+    {loan.status === 'pagado' ? 'Pagado' : 'Rechazado'}
+  </Text>
+</View>
                     </View>
                   </Card>
                 ))}
@@ -672,8 +898,15 @@ const styles = StyleSheet.create({
   loanDetail: { flex: 1 },
   loanDetailLabel: { fontSize: theme.fontSize.xs, color: theme.colors.gray[600], marginBottom: 2 },
   loanDetailValue: { fontSize: theme.fontSize.sm, fontWeight: theme.fontWeight.semibold, color: theme.colors.gray[900] },
-  loanActions: { flexDirection: 'row', gap: theme.spacing.md },
-  actionButton: { flex: 1 },
+  loanActions: { 
+  flexDirection: 'row', 
+  gap: theme.spacing.sm,
+  flexWrap: 'wrap'
+},
+actionButton: { 
+  flex: 1,
+  minWidth: 100
+},
   emptyCard: { padding: theme.spacing.xl, alignItems: 'center', marginTop: theme.spacing.lg },
   emptyIcon: { marginBottom: theme.spacing.md },
   emptyTitle: { fontSize: theme.fontSize.lg, fontWeight: theme.fontWeight.bold, color: theme.colors.gray[900], marginBottom: theme.spacing.sm },
@@ -714,4 +947,43 @@ const styles = StyleSheet.create({
   tableHeaderText: { fontSize: theme.fontSize.xs, fontWeight: theme.fontWeight.bold, color: theme.colors.primary[700], textAlign: 'center' },
   tableRow: { flexDirection: 'row', padding: theme.spacing.sm, borderBottomWidth: 1, borderBottomColor: theme.colors.gray[100] },
   tableCell: { fontSize: theme.fontSize.xs, color: theme.colors.gray[700], textAlign: 'center' },
+  userInfo: {
+    backgroundColor: theme.colors.primary[50],
+    padding: theme.spacing.sm,
+    borderRadius: theme.borderRadius.md,
+    marginBottom: theme.spacing.md,
+    borderLeftWidth: 4,
+    borderLeftColor: theme.colors.primary[500],
+  },
+  userInfoText: {
+    fontSize: theme.fontSize.sm,
+    color: theme.colors.primary[700],
+    fontWeight: theme.fontWeight.semibold,
+  },
+  ownLoanText: {
+    fontSize: theme.fontSize.xs,
+    color: theme.colors.primary[500],
+    fontStyle: 'italic',
+    marginTop: 2,
+  },
+  debugCard: {
+  backgroundColor: theme.colors.primary[50],
+  borderLeftWidth: 4,
+  borderLeftColor: theme.colors.primary[500],
+  marginBottom: theme.spacing.md,
+  padding: theme.spacing.md,
+},
+debugTitle: {
+  fontSize: theme.fontSize.base,
+  fontWeight: theme.fontWeight.bold,
+  color: theme.colors.primary[800],
+  marginBottom: theme.spacing.sm,
+},
+debugText: {
+  fontSize: theme.fontSize.sm,
+  color: theme.colors.primary[700],
+  lineHeight: 20,
+  marginBottom: theme.spacing.md,
+},
 });
+
