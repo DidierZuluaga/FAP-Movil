@@ -10,6 +10,15 @@ import { LoginScreen } from '../screens/auth/LoginScreen';
 import { RegisterScreen } from '../screens/auth/RegisterScreen';
 import { theme } from '../config/theme';
 
+let MonthlyContributionConfigScreen;
+
+try {
+  MonthlyContributionConfigScreen = require('../screens/savings/MonthlyContributionConfigScreen').MonthlyContributionConfigScreen;
+} catch { 
+  MonthlyContributionConfigScreen = () => <View style={{flex:1,justifyContent:'center',alignItems:'center'}}>
+    <Text>Configuración de aporte en desarrollo</Text>
+  </View>; 
+}
 // Importar pantallas si existen, sino usar placeholder
 let DashboardScreen, SavingsScreen, LoansScreen, ReportsScreen, ProfileScreen, NotificationsScreen;
 
@@ -64,6 +73,7 @@ export const AppNavigator = () => {
           <>
             <Stack.Screen name="Main" component={MainTabs} />
             <Stack.Screen name="Notifications" component={NotificationsScreen} />
+            <Stack.Screen name="MonthlyContributionConfig" component={MonthlyContributionConfigScreen} />
           </>
         ) : (
           <>

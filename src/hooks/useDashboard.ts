@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from './useAuth';
 import { savingsService } from '../services/firestore/savingsService';
 import { loansService } from '../services/firestore/loansService';
+import { profileService } from '../services/firestore/profileService'; // ← AÑADE ESTA IMPORTACIÓN
 
 export const useDashboard = () => {
   const { user } = useAuth();
@@ -11,7 +12,7 @@ export const useDashboard = () => {
     interests: 0,
     activeLoans: 0,
     nextMeetings: 2,
-    monthlyContribution: 500000,
+    monthlyContribution: 0, // ← CAMBIA A 0, se cargará desde Firebase
     recentTransactions: [] as any[],
     savingsGrowth: 8.5,
   });
@@ -23,11 +24,12 @@ export const useDashboard = () => {
       setIsLoading(true);
 
       // Cargar datos reales de Firebase
-      const [totalBalance, interests, loans, savings] = await Promise.all([
+      const [totalBalance, interests, loans, savings, monthlyContribution] = await Promise.all([
         savingsService.getTotalBalance(user.id),
         savingsService.calculateInterests(user.id),
         loansService.getUserLoans(user.id),
         savingsService.getUserSavings(user.id),
+        profileService.getMonthlyContribution(user.id) // ← AÑADE ESTA LÍNEA
       ]);
 
       // Contar préstamos activos
@@ -49,7 +51,7 @@ export const useDashboard = () => {
         interests,
         activeLoans: activeLoansCount,
         nextMeetings: 2,
-        monthlyContribution: 500000,
+        monthlyContribution: monthlyContribution, // ← USA EL VALOR REAL
         recentTransactions: transactions,
         savingsGrowth: 8.5,
       });

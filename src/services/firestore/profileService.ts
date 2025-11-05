@@ -317,6 +317,39 @@ class ProfileService {
       return null;
     }
   }
+    // === MÉTODOS NUEVOS PARA APORTE MENSUAL ===
+  
+  // Método específico para el aporte mensual
+  async updateMonthlyContribution(userId: string, amount: number): Promise<void> {
+    try {
+      const userRef = doc(db, this.usersCollection, userId);
+      await updateDoc(userRef, {
+        monthlyContribution: amount,
+        updatedAt: new Date(),
+      });
+      console.log('✅ Aporte mensual actualizado:', amount);
+    } catch (error: any) {
+      console.error('Error actualizando aporte mensual:', error);
+      throw new Error('No se pudo actualizar el aporte mensual');
+    }
+  }
+
+  // Obtener solo el aporte mensual
+  async getMonthlyContribution(userId: string): Promise<number> {
+    try {
+      const userRef = doc(db, this.usersCollection, userId);
+      const userSnap = await getDoc(userRef);
+
+      if (userSnap.exists()) {
+        const data = userSnap.data();
+        return data.monthlyContribution || 0;
+      }
+      return 0;
+    } catch (error: any) {
+      console.error('Error obteniendo aporte mensual:', error);
+      return 0;
+    }
+  }
 }
 
 export const profileService = new ProfileService();

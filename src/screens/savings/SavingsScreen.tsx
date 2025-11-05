@@ -28,13 +28,33 @@ import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
 import { theme } from '../../config/theme';
 import { formatCurrency, formatDate } from '../../utils/formatters';
-import { savingsService } from '../../services/firestore/savingsService';
+import { useSavings } from '../../hooks/useSavings';
 
-export const SavingsScreen = () => {
+// CAMBIA ESTA LÍNEA: Añade { navigation }
+export const SavingsScreen = ({ navigation }: any) => {
   const { user } = useAuth();
+  const { 
+    totalBalance, 
+    interests, 
+    monthlyContribution,
+    savings,
+    createSaving,
+    isLoading: savingsLoading,
+    refresh  // ← CORREGIDO: con coma y en línea correcta
+  } = useSavings();
+
+  // AÑADE ESTE USEEFFECT COMPLETO
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      console.log('🔄 Savings: Recargando datos...');
+      refresh();
+    });
+
+    return unsubscribe;
+  }, [navigation, refresh]);
+  
   const [showAddModal, setShowAddModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   // Estados para el formulario
@@ -43,59 +63,6 @@ export const SavingsScreen = () => {
     description: '',
   });
   const [formErrors, setFormErrors] = useState<any>({});
-
-  // Datos reales de Firebase
-  const [savingsData, setSavingsData] = useState({
-    totalBalance: 0,
-    monthlyContribution: 0,
-    totalInterests: 0,
-    growth: 0,
-    transactions: [] as any[],
-  });
-
-  // Cargar datos de Firebase
-  const loadData = async () => {
-    if (!user) return;
-
-    try {
-      setIsLoading(true);
-      
-      const [balance, interests, savings] = await Promise.all([
-        savingsService.getTotalBalance(user.id),
-        savingsService.calculateInterests(user.id),
-        savingsService.getUserSavings(user.id),
-      ]);
-
-      const transactions = savings.map((saving) => ({
-        id: saving.id,
-        amount: saving.amount,
-        description: saving.description,
-        date: saving.date,
-        status: saving.status,
-      }));
-
-      // Calcular aporte mensual promedio
-      const monthlyContribution = savings.length > 0 
-        ? Math.round(balance / savings.length) 
-        : 0;
-
-      setSavingsData({
-        totalBalance: balance,
-        monthlyContribution,
-        totalInterests: interests,
-        growth: 8.5,
-        transactions,
-      });
-    } catch (error) {
-      console.error('Error cargando datos:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadData();
-  }, [user]);
 
   // Validar formulario
   const validateForm = () => {
@@ -124,13 +91,10 @@ export const SavingsScreen = () => {
       
       console.log('💾 Guardando aporte:', { userId: user!.id, amount, description: formData.description });
       
-      const savingId = await savingsService.createSaving(
-        user!.id,
-        amount,
-        formData.description
-      );
+      // Usar el método del hook
+      await createSaving(amount, formData.description);
 
-      console.log('✅ Aporte guardado con ID:', savingId);
+      console.log('✅ Aporte guardado');
 
       // Crear notificación automática
       try {
@@ -151,10 +115,7 @@ export const SavingsScreen = () => {
       setFormData({ amount: '', description: '' });
       setShowAddModal(false);
 
-      // Recargar datos
-      console.log('🔄 Recargando datos...');
-      await loadData();
-      console.log('✅ Datos recargados');
+      console.log('✅ Datos actualizados automáticamente');
     } catch (error: any) {
       console.error('❌ Error al guardar:', error);
       if (Platform.OS === 'web') {
@@ -168,9 +129,12 @@ export const SavingsScreen = () => {
   };
 
   // Filtrar transacciones
-  const filteredTransactions = savingsData.transactions.filter((t) =>
-    t.description.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredTransactions = savings.filter((saving) =>
+    saving.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Calcular crecimiento (puedes ajustar esta lógica)
+  const growth = savings.length > 0 ? 8.5 : 0;
 
   return (
     <View style={styles.container}>
@@ -188,13 +152,13 @@ export const SavingsScreen = () => {
           <View style={styles.balanceCard}>
             <Text style={styles.balanceLabel}>Saldo Total Acumulado</Text>
             <Text style={styles.balanceAmount}>
-              {formatCurrency(savingsData.totalBalance)}
+              {formatCurrency(totalBalance)}
             </Text>
             <View style={styles.balanceFooter}>
               <View style={styles.balanceItem}>
                 <Text style={styles.balanceItemLabel}>Intereses</Text>
                 <Text style={styles.balanceItemValue}>
-                  {formatCurrency(savingsData.totalInterests)}
+                  {formatCurrency(interests)}
                 </Text>
               </View>
               <View style={styles.balanceDivider} />
@@ -203,7 +167,7 @@ export const SavingsScreen = () => {
                 <View style={styles.growthContainer}>
                   <TrendingUp size={16} color={theme.colors.white} />
                   <Text style={styles.balanceItemValue}>
-                    +{savingsData.growth}%
+                    +{growth}%
                   </Text>
                 </View>
               </View>
@@ -218,9 +182,9 @@ export const SavingsScreen = () => {
               <DollarSign size={24} color={theme.colors.success[600]} />
             </View>
             <Text style={styles.statValue}>
-              {formatCurrency(savingsData.monthlyContribution)}
+              {formatCurrency(monthlyContribution)}
             </Text>
-            <Text style={styles.statLabel}>Aporte Promedio</Text>
+            <Text style={styles.statLabel}>Aporte Mensual Configurado</Text>
           </Card>
 
           <Card style={styles.statCard} variant="elevated">
@@ -228,7 +192,7 @@ export const SavingsScreen = () => {
               <TrendingUp size={24} color={theme.colors.primary[600]} />
             </View>
             <Text style={styles.statValue}>
-              {formatCurrency(savingsData.totalInterests)}
+              {formatCurrency(interests)}
             </Text>
             <Text style={styles.statLabel}>Total Intereses</Text>
           </Card>
@@ -264,7 +228,7 @@ export const SavingsScreen = () => {
             </Text>
           </View>
 
-          {isLoading ? (
+          {savingsLoading ? (
             <ActivityIndicator size="large" color={theme.colors.primary[600]} />
           ) : filteredTransactions.length === 0 ? (
             <View style={styles.emptyState}>
@@ -273,20 +237,20 @@ export const SavingsScreen = () => {
               </Text>
             </View>
           ) : (
-            filteredTransactions.map((transaction) => (
-              <Card key={transaction.id} style={styles.transactionCard} variant="outlined">
+            filteredTransactions.map((saving) => (
+              <Card key={saving.id} style={styles.transactionCard} variant="outlined">
                 <View style={styles.transactionContent}>
                   <View style={styles.transactionIcon}>
                     <ArrowDownRight size={20} color={theme.colors.success[600]} />
                   </View>
                   <View style={styles.transactionDetails}>
                     <Text style={styles.transactionDescription}>
-                      {transaction.description}
+                      {saving.description}
                     </Text>
                     <View style={styles.transactionMeta}>
                       <Calendar size={12} color={theme.colors.gray[500]} />
                       <Text style={styles.transactionDate}>
-                        {formatDate(transaction.date, 'dd MMM yyyy')}
+                        {formatDate(saving.date, 'dd MMM yyyy')}
                       </Text>
                       <View style={styles.statusBadge}>
                         <Text style={styles.statusText}>Confirmado</Text>
@@ -294,7 +258,7 @@ export const SavingsScreen = () => {
                     </View>
                   </View>
                   <Text style={styles.transactionAmount}>
-                    +{formatCurrency(transaction.amount)}
+                    +{formatCurrency(saving.amount)}
                   </Text>
                 </View>
               </Card>
@@ -362,6 +326,7 @@ export const SavingsScreen = () => {
   );
 };
 
+// Los estilos se mantienen igual...
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.colors.gray[50] },
   header: { paddingTop: 60, paddingHorizontal: theme.spacing.lg, paddingBottom: 120, borderBottomLeftRadius: 30, borderBottomRightRadius: 30 },

@@ -22,6 +22,9 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   User,
+  BarChart3,
+  Target,
+  Zap,
 } from 'lucide-react-native';
 import { useAuth } from '../../hooks/useAuth';
 import { Card } from '../../components/common/Card';
@@ -42,7 +45,15 @@ export const DashboardScreen = ({ navigation }: any) => {
   const { data: dashboardData, isLoading: loadingData, refresh } = useDashboard();
   const { unreadCount } = useNotifications();
   
-  // Actualizar onRefresh:
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      console.log('🔄 Dashboard: Recargando datos...');
+      refresh();
+    });
+
+    return unsubscribe;
+  }, [navigation, refresh]);
+  
   const onRefresh = async () => {
     setRefreshing(true);
     await refresh();
@@ -50,7 +61,6 @@ export const DashboardScreen = ({ navigation }: any) => {
   };
 
   useEffect(() => {
-    // Animaciones de entrada
     Animated.stagger(150, [
       Animated.spring(animatedValues.balance, {
         toValue: 1,
@@ -75,9 +85,9 @@ export const DashboardScreen = ({ navigation }: any) => {
   
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return '¡Buenos días';
-    if (hour < 18) return '¡Buenas tardes';
-    return '¡Buenas noches';
+    if (hour < 12) return 'Buenos días';
+    if (hour < 18) return 'Buenas tardes';
+    return 'Buenas noches';
   };
 
   return (
@@ -92,34 +102,34 @@ export const DashboardScreen = ({ navigation }: any) => {
         />
       }
     >
-      {/* Header con gradiente */}
+      {/* Header Mejorado */}
       <LinearGradient
-        colors={[theme.colors.primary[600], theme.colors.secondary[600]]}
+        colors={['#667eea', '#764ba2']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.header}
       >
         <View style={styles.headerTop}>
-          <View>
-            <Text style={styles.greeting}>{getGreeting()},</Text>
-            <Text style={styles.userName}>{user?.name?.split(' ')[0] || 'Usuario'}</Text>
+          <View style={styles.userInfo}>
+            <Text style={styles.greeting}>{getGreeting()}</Text>
+            <Text style={styles.userName}>{user?.name || 'Usuario'}</Text>
           </View>
           <View style={styles.headerButtons}>
             <TouchableOpacity 
-              style={styles.notificationButton}
+              style={styles.iconButton}
               onPress={() => navigation.navigate('Notifications')}
             >
               <Bell size={24} color={theme.colors.white} />
               {unreadCount > 0 && (
-                <View style={styles.notificationBadge}>
-                  <Text style={styles.notificationBadgeText}>
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </Text>
                 </View>
               )}
             </TouchableOpacity>
             <TouchableOpacity 
-              style={styles.profileButton}
+              style={styles.iconButton}
               onPress={() => navigation.navigate('Profile')}
             >
               <User size={24} color={theme.colors.white} />
@@ -127,10 +137,10 @@ export const DashboardScreen = ({ navigation }: any) => {
           </View>
         </View>
 
-        {/* Balance principal animado */}
+        {/* Balance Principal Mejorado */}
         <Animated.View
           style={[
-            styles.balanceCard,
+            styles.balanceContainer,
             {
               opacity: animatedValues.balance,
               transform: [
@@ -140,9 +150,6 @@ export const DashboardScreen = ({ navigation }: any) => {
                     outputRange: [50, 0],
                   }),
                 },
-                {
-                  scale: animatedValues.balance,
-                },
               ],
             },
           ]}
@@ -150,186 +157,194 @@ export const DashboardScreen = ({ navigation }: any) => {
           <View style={styles.balanceHeader}>
             <Text style={styles.balanceLabel}>Saldo Total</Text>
             <View style={styles.growthBadge}>
-              <TrendingUp size={14} color={theme.colors.success[600]} />
-              <Text style={styles.growthText}>+{dashboardData.savingsGrowth}%</Text>
+              <TrendingUp size={14} color="#10B981" />
+              <Text style={styles.growthText}>+{dashboardData.savingsGrowth || 8.5}%</Text>
             </View>
           </View>
           <Text style={styles.balanceAmount}>
-            {formatCurrency(dashboardData.balance)}
+            {formatCurrency(dashboardData.balance || 0)}
           </Text>
-          <Text style={styles.interestsText}>
-            Intereses: {formatCurrency(dashboardData.interests)}
-          </Text>
+          <View style={styles.interestsContainer}>
+            <Text style={styles.interestsText}>
+              Intereses: {formatCurrency(dashboardData.interests || 0)}
+            </Text>
+          </View>
         </Animated.View>
       </LinearGradient>
 
-      {/* Tarjetas de estadísticas */}
-      <Animated.View
-        style={[
-          styles.statsContainer,
-          {
-            opacity: animatedValues.cards,
-            transform: [
-              {
-                translateY: animatedValues.cards.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [50, 0],
-                }),
-              },
-            ],
-          },
-        ]}
-      >
-        <View style={styles.statsGrid}>
-          <Card style={styles.statCard} variant="elevated">
-            <View style={[styles.statIcon, { backgroundColor: theme.colors.primary[100] }]}>
-              <DollarSign size={24} color={theme.colors.primary[600]} />
-            </View>
-            <Text style={styles.statValue}>
-              {formatCurrency(dashboardData.monthlyContribution)}
-            </Text>
-            <Text style={styles.statLabel}>Aporte Mensual</Text>
-          </Card>
+      <View style={styles.content}>
+        {/* Acciones Rápidas Mejoradas */}
+        <Card style={styles.quickActionsCard}>
+          <Text style={styles.sectionTitle}>Acciones Rápidas</Text>
+          <View style={styles.actionsGrid}>
+            <TouchableOpacity 
+              style={styles.actionItem}
+              onPress={() => navigation.navigate('Savings')}
+            >
+              <View style={[styles.actionIcon, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
+                <Plus size={24} color="#10B981" />
+              </View>
+              <Text style={styles.actionText}>Aportar</Text>
+            </TouchableOpacity>
 
-          <Card style={styles.statCard} variant="elevated">
-            <View style={[styles.statIcon, { backgroundColor: theme.colors.error[100] }]}>
-              <CreditCard size={24} color={theme.colors.error[600]} />
-            </View>
-            <Text style={styles.statValue}>{dashboardData.activeLoans}</Text>
-            <Text style={styles.statLabel}>Préstamo Activo</Text>
-          </Card>
+            <TouchableOpacity 
+              style={styles.actionItem}
+              onPress={() => navigation.navigate('Loans')}
+            >
+              <View style={[styles.actionIcon, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
+                <CreditCard size={24} color="#EF4444" />
+              </View>
+              <Text style={styles.actionText}>Préstamo</Text>
+            </TouchableOpacity>
 
-          <Card style={styles.statCard} variant="elevated">
-            <View style={[styles.statIcon, { backgroundColor: theme.colors.warning[100] }]}>
-              <Calendar size={24} color={theme.colors.warning[600]} />
-            </View>
-            <Text style={styles.statValue}>{dashboardData.nextMeetings}</Text>
-            <Text style={styles.statLabel}>Próximas Reuniones</Text>
-          </Card>
+            <TouchableOpacity 
+              style={styles.actionItem}
+              onPress={() => navigation.navigate('Reports')}
+            >
+              <View style={[styles.actionIcon, { backgroundColor: 'rgba(99, 102, 241, 0.1)' }]}>
+                <BarChart3 size={24} color="#6366F1" />
+              </View>
+              <Text style={styles.actionText}>Reportes</Text>
+            </TouchableOpacity>
+          </View>
+        </Card>
 
-          <Card style={styles.statCard} variant="elevated">
-            <View style={[styles.statIcon, { backgroundColor: theme.colors.success[100] }]}>
-              <TrendingUp size={24} color={theme.colors.success[600]} />
-            </View>
-            <Text style={styles.statValue}>+{dashboardData.savingsGrowth}%</Text>
-            <Text style={styles.statLabel}>Crecimiento</Text>
-          </Card>
-        </View>
-      </Animated.View>
-
-      {/* Acciones rápidas */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Acciones Rápidas</Text>
-        <View style={styles.quickActions}>
-          <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: theme.colors.success[500] }]}
-            onPress={() => navigation.navigate('Savings')}
-          >
-            <Plus size={24} color={theme.colors.white} />
-            <Text style={styles.actionButtonText}>Aportar</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: theme.colors.primary[500] }]}
-            onPress={() => navigation.navigate('Loans')}
-          >
-            <CreditCard size={24} color={theme.colors.white} />
-            <Text style={styles.actionButtonText}>Préstamo</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: theme.colors.secondary[500] }]}
-            onPress={() => navigation.navigate('Reports')}
-          >
-            <TrendingUp size={24} color={theme.colors.white} />
-            <Text style={styles.actionButtonText}>Reportes</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Movimientos recientes */}
-      <Animated.View
-        style={[
-          styles.section,
-          {
-            opacity: animatedValues.notifications,
-            transform: [
-              {
-                translateY: animatedValues.notifications.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [50, 0],
-                }),
-              },
-            ],
-          },
-        ]}
-      >
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Movimientos Recientes</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Savings')}>
-            <Text style={styles.seeAllText}>Ver todos</Text>
-          </TouchableOpacity>
-        </View>
-
-        {dashboardData.recentTransactions.length > 0 ? (
-          dashboardData.recentTransactions.map((transaction) => (
-            <Card key={transaction.id} style={styles.transactionCard} variant="outlined">
-              <View style={styles.transactionContent}>
-                <View
-                  style={[
-                    styles.transactionIcon,
-                    {
-                      backgroundColor:
-                        transaction.amount > 0
-                          ? theme.colors.success[100]
-                          : theme.colors.error[100],
-                    },
-                  ]}
-                >
-                  {transaction.amount > 0 ? (
-                    <ArrowDownRight
-                      size={20}
-                      color={theme.colors.success[600]}
-                    />
-                  ) : (
-                    <ArrowUpRight size={20} color={theme.colors.error[600]} />
-                  )}
+        {/* Métricas Principales Mejoradas */}
+        <Animated.View
+          style={[
+            {
+              opacity: animatedValues.cards,
+              transform: [
+                {
+                  translateY: animatedValues.cards.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [50, 0],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          <View style={styles.metricsGrid}>
+            <TouchableOpacity 
+              onPress={() => navigation.navigate('MonthlyContributionConfig')}
+            >
+              <Card style={{...styles.metricCard, ...styles.savingsCard}}>
+                <View style={[styles.metricIcon, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
+                  <DollarSign size={24} color="#10B981" />
                 </View>
-                <View style={styles.transactionDetails}>
-                  <Text style={styles.transactionDescription}>
-                    {transaction.description}
-                  </Text>
-                  <Text style={styles.transactionDate}>
-                    {formatDate(transaction.date, 'dd MMM yyyy')}
-                  </Text>
-                </View>
-                <Text
-                  style={[
+                <Text style={styles.metricValue}>
+                  {formatCurrency(dashboardData.monthlyContribution || 0)}
+                </Text>
+                <Text style={styles.metricLabel}>Aporte Mensual</Text>
+                <Text style={styles.configHint}>Toca para configurar</Text>
+                <View style={[styles.trendIndicator, { backgroundColor: '#10B981' }]} />
+              </Card>
+            </TouchableOpacity>
+
+            <Card style={{...styles.metricCard, ...styles.loansCard}}>
+              <View style={[styles.metricIcon, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
+                <CreditCard size={24} color="#EF4444" />
+              </View>
+              <Text style={styles.metricValue}>{dashboardData.activeLoans || 0}</Text>
+              <Text style={styles.metricLabel}>Préstamos Activos</Text>
+              <View style={[styles.trendIndicator, { backgroundColor: '#EF4444' }]} />
+            </Card>
+
+            <Card style={{...styles.metricCard, ...styles.growthCard}}>
+              <View style={[styles.metricIcon, { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]}>
+                <TrendingUp size={24} color="#F59E0B" />
+              </View>
+              <Text style={styles.metricValue}>+{dashboardData.savingsGrowth || 8.5}%</Text>
+              <Text style={styles.metricLabel}>Crecimiento</Text>
+              <View style={[styles.trendIndicator, { backgroundColor: '#F59E0B' }]} />
+            </Card>
+
+            <Card style={{...styles.metricCard, ...styles.targetCard}}>
+              <View style={[styles.metricIcon, { backgroundColor: 'rgba(99, 102, 241, 0.1)' }]}>
+                <Target size={24} color="#6366F1" />
+              </View>
+              <Text style={styles.metricValue}>
+                {formatCurrency((dashboardData.balance || 0) * 1.2)}
+              </Text>
+              <Text style={styles.metricLabel}>Meta 6 Meses</Text>
+              <View style={[styles.trendIndicator, { backgroundColor: '#6366F1' }]} />
+            </Card>
+          </View>
+        </Animated.View>
+
+        {/* Movimientos Recientes Mejorados */}
+        <Animated.View
+          style={[
+            {
+              opacity: animatedValues.notifications,
+              transform: [
+                {
+                  translateY: animatedValues.notifications.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [50, 0],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          <Card style={styles.transactionsCard}>
+            <View style={styles.transactionsHeader}>
+              <Text style={styles.sectionTitle}>Movimientos Recientes</Text>
+              <TouchableOpacity onPress={() => navigation.navigate('Savings')}>
+                <Text style={styles.seeAllLink}>Ver todos</Text>
+              </TouchableOpacity>
+            </View>
+
+            {dashboardData.recentTransactions && dashboardData.recentTransactions.length > 0 ? (
+              dashboardData.recentTransactions.slice(0, 3).map((transaction) => (
+                <View key={transaction.id} style={styles.transactionItem}>
+                  <View style={styles.transactionInfo}>
+                    <View style={[
+                      styles.transactionIcon,
+                      { 
+                        backgroundColor: transaction.amount > 0 
+                          ? 'rgba(16, 185, 129, 0.1)' 
+                          : 'rgba(239, 68, 68, 0.1)' 
+                      }
+                    ]}>
+                      {transaction.amount > 0 ? (
+                        <ArrowDownRight size={16} color="#10B981" />
+                      ) : (
+                        <ArrowUpRight size={16} color="#EF4444" />
+                      )}
+                    </View>
+                    <View style={styles.transactionDetails}>
+                      <Text style={styles.transactionDescription}>
+                        {transaction.description}
+                      </Text>
+                      <Text style={styles.transactionDate}>
+                        {formatDate(transaction.date, 'dd MMM yyyy')}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={[
                     styles.transactionAmount,
-                    {
-                      color:
-                        transaction.amount > 0
-                          ? theme.colors.success[600]
-                          : theme.colors.error[600],
-                    },
-                  ]}
-                >
-                  {transaction.amount > 0 ? '+' : ''}
-                  {formatCurrency(Math.abs(transaction.amount))}
+                    { color: transaction.amount > 0 ? '#10B981' : '#EF4444' }
+                  ]}>
+                    {transaction.amount > 0 ? '+' : ''}{formatCurrency(Math.abs(transaction.amount))}
+                  </Text>
+                </View>
+              ))
+            ) : (
+              <View style={styles.emptyState}>
+                <Zap size={48} color={theme.colors.gray[400]} />
+                <Text style={styles.emptyStateText}>No hay movimientos recientes</Text>
+                <Text style={styles.emptyStateSubtext}>
+                  Realiza tu primer aporte para comenzar
                 </Text>
               </View>
-            </Card>
-          ))
-        ) : (
-          <Card style={styles.emptyCard} variant="outlined">
-            <Text style={styles.emptyText}>
-              No hay transacciones recientes
-            </Text>
+            )}
           </Card>
-        )}
-      </Animated.View>
+        </Animated.View>
+      </View>
 
-      {/* Espaciado inferior */}
       <View style={styles.bottomSpacing} />
     </ScrollView>
   );
@@ -338,29 +353,33 @@ export const DashboardScreen = ({ navigation }: any) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.gray[50],
+    backgroundColor: '#F8FAFC',
   },
   header: {
     paddingTop: 60,
     paddingHorizontal: theme.spacing.lg,
-    paddingBottom: 120,
+    paddingBottom: 40,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
   },
   headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: theme.spacing.xl,
+    alignItems: 'flex-start',
+    marginBottom: 30,
+  },
+  userInfo: {
+    flex: 1,
   },
   greeting: {
-    fontSize: theme.fontSize.base,
+    fontSize: 16,
     color: theme.colors.white,
     opacity: 0.9,
+    marginBottom: 4,
   },
   userName: {
-    fontSize: theme.fontSize['2xl'],
-    fontWeight: theme.fontWeight.bold,
+    fontSize: 24,
+    fontWeight: 'bold',
     color: theme.colors.white,
   },
   headerButtons: {
@@ -368,7 +387,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  notificationButton: {
+  iconButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
@@ -377,11 +396,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     position: 'relative',
   },
-  notificationBadge: {
+  badge: {
     position: 'absolute',
     top: 8,
     right: 8,
-    backgroundColor: theme.colors.error[500],
+    backgroundColor: '#EF4444',
     minWidth: 18,
     height: 18,
     borderRadius: 9,
@@ -389,143 +408,188 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 4,
   },
-  notificationBadgeText: {
+  badgeText: {
     color: theme.colors.white,
     fontSize: 10,
-    fontWeight: theme.fontWeight.bold,
+    fontWeight: 'bold',
   },
-  profileButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-  },
-  balanceCard: {
+  balanceContainer: {
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderRadius: theme.borderRadius.xl,
-    padding: theme.spacing.lg,
+    borderRadius: 20,
+    padding: 24,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',
-  },
+},
   balanceHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: theme.spacing.sm,
+    marginBottom: 12,
   },
   balanceLabel: {
-    fontSize: theme.fontSize.sm,
+    fontSize: 16,
     color: theme.colors.white,
     opacity: 0.9,
   },
   growthBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.white,
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 4,
-    borderRadius: theme.borderRadius.full,
-    gap: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    gap: 6,
   },
   growthText: {
-    fontSize: theme.fontSize.xs,
-    color: theme.colors.success[600],
-    fontWeight: theme.fontWeight.semibold,
+    fontSize: 12,
+    color: '#10B981',
+    fontWeight: 'bold',
   },
   balanceAmount: {
     fontSize: 36,
-    fontWeight: theme.fontWeight.bold,
+    fontWeight: 'bold',
     color: theme.colors.white,
-    marginBottom: theme.spacing.xs,
+    marginBottom: 8,
+  },
+  interestsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   interestsText: {
-    fontSize: theme.fontSize.sm,
+    fontSize: 14,
     color: theme.colors.white,
     opacity: 0.9,
   },
-  statsContainer: {
-    marginTop: -70,
-    paddingHorizontal: theme.spacing.lg,
+  content: {
+    padding: theme.spacing.lg,
+    marginTop: -20,
   },
-  statsGrid: {
+  quickActionsCard: {
+    padding: 20,
+    marginBottom: 20,
+    borderRadius: 16,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: theme.colors.gray[900],
+    marginBottom: 16,
+  },
+  actionsGrid: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: theme.spacing.md,
+    justifyContent: 'space-between',
+    gap: 12,
   },
-  statCard: {
-    width: (width - theme.spacing.lg * 2 - theme.spacing.md) / 2,
-    padding: theme.spacing.md,
+  actionItem: {
+    flex: 1,
     alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
   },
-  statIcon: {
+  actionIcon: {
     width: 48,
     height: 48,
     borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: theme.spacing.sm,
+    marginBottom: 8,
   },
-  statValue: {
-    fontSize: theme.fontSize.xl,
-    fontWeight: theme.fontWeight.bold,
+  actionText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: theme.colors.gray[700],
+    textAlign: 'center',
+  },
+  metricsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 20,
+  },
+  metricCard: {
+    width: (width - 48) / 2 - 6,
+    padding: 16,
+    borderRadius: 16,
+    position: 'relative',
+  },
+  savingsCard: {
+    backgroundColor: '#F0FDF9',
+    borderColor: '#10B981',
+  },
+  loansCard: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#EF4444',
+  },
+  growthCard: {
+    backgroundColor: '#FFFBEB',
+    borderColor: '#F59E0B',
+  },
+  targetCard: {
+    backgroundColor: '#EFF6FF',
+    borderColor: '#3B82F6',
+  },
+  metricIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  metricValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
     color: theme.colors.gray[900],
     marginBottom: 4,
   },
-  statLabel: {
-    fontSize: theme.fontSize.xs,
+  metricLabel: {
+    fontSize: 12,
     color: theme.colors.gray[600],
     textAlign: 'center',
   },
-  section: {
-    paddingHorizontal: theme.spacing.lg,
-    marginTop: theme.spacing.xl,
+  trendIndicator: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    width: 4,
+    height: 20,
+    borderRadius: 2,
   },
-  sectionHeader: {
+  configHint: {
+    fontSize: 10,
+    color: '#10B981',
+    marginTop: 4,
+    fontStyle: 'italic',
+    textAlign: 'center',
+  },
+  transactionsCard: {
+    padding: 20,
+    borderRadius: 16,
+  },
+  transactionsHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: theme.spacing.md,
+    marginBottom: 16,
   },
-  sectionTitle: {
-    fontSize: theme.fontSize.lg,
-    fontWeight: theme.fontWeight.bold,
-    color: theme.colors.gray[900],
+  seeAllLink: {
+    fontSize: 14,
+    color: '#3B82F6',
+    fontWeight: '600',
   },
-  seeAllText: {
-    fontSize: theme.fontSize.sm,
-    color: theme.colors.primary[600],
-    fontWeight: theme.fontWeight.semibold,
-  },
-  quickActions: {
+  transactionItem: {
     flexDirection: 'row',
-    gap: theme.spacing.md,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
   },
-  actionButton: {
+  transactionInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: theme.spacing.md,
-    borderRadius: theme.borderRadius.xl,
-    gap: theme.spacing.sm,
-    ...theme.shadows.md,
-  },
-  actionButtonText: {
-    color: theme.colors.white,
-    fontSize: theme.fontSize.sm,
-    fontWeight: theme.fontWeight.semibold,
-  },
-  transactionCard: {
-    marginBottom: theme.spacing.sm,
-  },
-  transactionContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.md,
   },
   transactionIcon: {
     width: 40,
@@ -533,33 +597,40 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 12,
   },
   transactionDetails: {
     flex: 1,
   },
   transactionDescription: {
-    fontSize: theme.fontSize.base,
-    fontWeight: theme.fontWeight.medium,
-    color: theme.colors.gray[900],
+    fontSize: 14,
+    fontWeight: '600',
+    color: theme.colors.gray[800],
     marginBottom: 2,
   },
   transactionDate: {
-    fontSize: theme.fontSize.xs,
+    fontSize: 12,
     color: theme.colors.gray[500],
   },
   transactionAmount: {
-    fontSize: theme.fontSize.lg,
-    fontWeight: theme.fontWeight.bold,
+    fontSize: 16,
+    fontWeight: 'bold',
   },
-  emptyCard: {
-    padding: theme.spacing.lg,
+  emptyState: {
     alignItems: 'center',
+    paddingVertical: 40,
   },
-  emptyText: {
-    fontSize: theme.fontSize.sm,
-    color: theme.colors.gray[500],
+  emptyStateText: {
+    fontSize: 16,
+    color: theme.colors.gray[600],
+    marginTop: 12,
+    marginBottom: 4,
   },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: theme.colors.gray[500],  
+},
   bottomSpacing: {
-    height: 100,
+    height: 40,
   },
 });
